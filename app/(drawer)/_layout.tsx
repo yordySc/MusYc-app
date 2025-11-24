@@ -1,104 +1,39 @@
+// app/(drawer)/_layout.tsx
 import { Drawer } from "expo-router/drawer";
 import React from "react";
 import IconItem from "../../components/IconItem";
-import { useTheme } from "../../components/Theme";
 
-const DrawerLayout: React.FC = () => {
-  const { isDark } = useTheme();
-
+export default function DrawerLayout() {
   return (
     <Drawer
       screenOptions={{
-        headerTintColor: "#f4f4f5",
-        headerStyle: { backgroundColor: "#5bbf96" },
-        drawerActiveTintColor: "#5bbf96",
-        drawerInactiveTintColor: isDark ? "#cbd5e1" : "#6b7280",
-        drawerStyle: { backgroundColor: isDark ? "#1e293b" : "#f4f4f5" },
-        drawerLabelStyle: { fontWeight: "600" },
+        headerShown: true,
+        headerTitleAlign: "center",
+        headerStyle: { backgroundColor: "#132E32" },
+        headerTintColor: "#84FFC6",
+        headerTitleStyle: { fontFamily: "Poppins-Bold", fontSize: 20 },
+
+        drawerStyle: { 
+          backgroundColor: "#132E32", 
+          width: 290,
+          borderTopRightRadius: 30,
+          borderBottomRightRadius: 30,
+        },
+        drawerActiveTintColor: "#132E32",
+        drawerActiveBackgroundColor: "#84FFC6",
+        drawerInactiveTintColor: "#FFD015",
+        drawerLabelStyle: { 
+          fontFamily: "Poppins-SemiBold", 
+          fontSize: 17,
+          marginLeft: -15 
+        },
       }}
     >
-      <Drawer.Screen
-        name="index"
-        options={{
-          headerTitle: "Bienvenido a MusYc",
-          drawerLabel: "Diario",
-          drawerIcon: ({ color, size }) => (
-            <IconItem
-              type="Ionicons"
-              name="book-outline"
-              color={color}
-              size={size}
-            />
-          ),
-        }}
-      />
-      <Drawer.Screen
-        name="(tabs)"
-        options={{
-          headerTitle: "ENTRENADOR RESPIRATORIO",
-          drawerLabel: "Respiración",
-          drawerIcon: ({ color, size }) => (
-            <IconItem
-              type="Ionicons"
-              name="body-outline"
-              color={color}
-              size={size}
-            />
-          ),
-        }}
-      />
-      <Drawer.Screen
-        name="digitizer"
-        options={{
-          headerTitle: "ENTRENADOR DE DIGITACIÓN",
-          drawerLabel: "Digitación",
-          drawerIcon: ({ color, size }) => (
-            <IconItem
-              type="Ionicons"
-              name="keypad-outline"
-              color={color}
-              size={size}
-            />
-          ),
-        }}
-      />
-            {/* 4. Biblioteca Musical */}
-           {" "}
-      <Drawer.Screen
-        name="library"
-        options={{
-          headerTitle: "BIBLIOTECA MUSICAL",
-          drawerLabel: "Biblioteca",
-          drawerIcon: ({ color, size }) => (
-            <IconItem
-              type="Ionicons"
-              name="musical-notes-outline"
-              color={color}
-              size={size}
-            />
-          ),
-        }}
-      />
-            {/* 5. Ajustes de la App */}
-           {" "}
-      <Drawer.Screen
-        name="settings"
-        options={{
-          headerTitle: "AJUSTES",
-          drawerLabel: "Ajustes",
-          drawerIcon: ({ color, size }) => (
-            <IconItem
-              type="Ionicons"
-              name="settings-outline"
-              color={color}
-              size={size}
-            />
-          ),
-        }}
-      />
-         {" "}
+      <Drawer.Screen name="index" options={{ drawerLabel: "Diario", headerTitle: "MusYc", drawerIcon: ({ color }) => <IconItem type="Ionicons" name="book" color={color} size={28} /> }} />
+      <Drawer.Screen name="(tabs)" options={{ drawerLabel: "Respiración", headerTitle: "ENTRENADOR RESPIRATORIO", drawerIcon: ({ color }) => <IconItem type="Ionicons" name="body" color={color} size={28} /> }} />
+      <Drawer.Screen name="digitizer" options={{ drawerLabel: "Digitación", headerTitle: "ENTRENADOR DE DIGITACIÓN", drawerIcon: ({ color }) => <IconItem type="Ionicons" name="keypad" color={color} size={28} /> }} />
+      <Drawer.Screen name="library" options={{ drawerLabel: "Biblioteca", headerTitle: "BIBLIOTECA MUSICAL", drawerIcon: ({ color }) => <IconItem type="Ionicons" name="musical-notes" color={color} size={28} /> }} />
+      <Drawer.Screen name="settings" options={{ drawerLabel: "Ajustes", headerTitle: "AJUSTES", drawerIcon: ({ color }) => <IconItem type="Ionicons" name="settings" color={color} size={28} /> }} />
     </Drawer>
   );
-};
-
-export default DrawerLayout;
+}

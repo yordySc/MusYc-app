@@ -1,48 +1,93 @@
-import React, { createContext, useContext, useState, useMemo, PropsWithChildren } from 'react';
-import { View, Text, useColorScheme, Switch, ViewProps, TextProps, StyleProp, ViewStyle } from 'react-native';
+// components/Theme.tsx
+import React, { createContext, useContext, useState, useMemo, PropsWithChildren, useEffect, useCallback } from 'react';
+import { View, Text, Switch, ViewProps, TextProps } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
+import * as SplashScreen from 'expo-splash-screen';
 
-interface ThemeContextProps { theme: 'light' | 'dark'; isDark: boolean; toggleTheme: () => void; }
+SplashScreen.preventAutoHideAsync();
+
+const THEME_KEY = 'theme:isDark';
+
+interface ThemeContextProps {
+  isDark: boolean;
+  toggleTheme: () => void;
+}
+
 const ThemeContext = createContext<ThemeContextProps | undefined>(undefined);
 
 export const useTheme = (): ThemeContextProps => {
   const context = useContext(ThemeContext);
-  if (context === undefined) { throw new Error('useTheme debe ser usado dentro de un ThemeProvider'); }
+  if (!context) throw new Error('useTheme debe usarse dentro de ThemeProvider');
   return context;
 };
 
 export const ThemeProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
-  const systemColorScheme = useColorScheme() || 'light'; 
-  const [theme, setTheme] = useState<'light' | 'dark'>(systemColorScheme);
-  const isDark = theme === 'dark';
+  const [isDark, setIsDark] = useState(false);
 
-  const toggleTheme = () => { setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light')); };
-  const contextValue: ThemeContextProps = useMemo(() => ({ theme, isDark, toggleTheme }), [theme, isDark]);
+  let [fontsLoaded] = useFonts({
+    Poppins: Poppins_400Regular,
+    'Poppins-Medium': Poppins_500Medium,
+    'Poppins-SemiBold': Poppins_600SemiBold,
+    'Poppins-Bold': Poppins_700Bold,
+  });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(THEME_KEY);
+        if (stored !== null) setIsDark(stored === 'true');
+      } catch (err) {
+        console.log('Failed to read theme from storage', err);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (fontsLoaded) SplashScreen.hideAsync();
+  }, [fontsLoaded]);
+
+  // Definir toggleTheme antes de cualquier retorno condicional para mantener
+  // el orden de hooks consistente entre renders (evita "Rendered more hooks...").
+  const toggleTheme = useCallback(() => {
+    setIsDark(prev => {
+      const next = !prev;
+      AsyncStorage.setItem(THEME_KEY, next ? 'true' : 'false').catch(e => console.log('set theme err', e));
+      return next;
+    });
+  }, []);
+
+  if (!fontsLoaded) return null;
 
   return (
-    <ThemeContext.Provider value={contextValue}>
-      <View key={theme} className={isDark ? 'dark' : ''} style={{ flex: 1 }}>{children}</View>
+    <ThemeContext.Provider value={{ isDark, toggleTheme }}>
+      <View className={isDark ? 'dark flex-1' : 'flex-1'}>
+        <View className="flex-1 bg-background dark:bg-[#07181a]">{children}</View>
+      </View>
     </ThemeContext.Provider>
   );
 };
 
-interface ThemeViewProps extends ViewProps { className?: string; style?: StyleProp<ViewStyle>; }
-export const ThemeView: React.FC<PropsWithChildren<ThemeViewProps>> = ({ className = '', children, ...props }) => {
-  const defaultClasses = 'flex-1 bg-background-light dark:bg-background-dark';
-  return (<View className={`${defaultClasses} ${className}`} {...props}>{children}</View>);
-};
+// Componentes con Poppins y colores nuevos
+export const ThemeView: React.FC<PropsWithChildren<ViewProps & { className?: string }>> = ({ className = '', children, ...props }) => (
+  <View className={`flex-1 bg-background dark:bg-[#07181a] ${className}`} {...props}>{children}</View>
+);
 
-interface ThemeTextProps extends TextProps { className?: string; }
-export const ThemeText: React.FC<PropsWithChildren<ThemeTextProps>> = ({ className = '', children, ...props }) => {
-  const defaultClasses = 'text-text-light dark:text-text-dark';
-  return (<Text className={`${defaultClasses} ${className}`} {...props}>{children}</Text>);
-};
+export const ThemeText: React.FC<PropsWithChildren<TextProps & { className?: string }>> = ({ className = '', children, ...props }) => (
+  <Text className={`font-poppins text-[#132E32] dark:text-white ${className}`} {...props}>{children}</Text>
+);
 
 export const ThemeSwitch: React.FC = () => {
   const { isDark, toggleTheme } = useTheme();
   return (
-    <View className="flex-row items-center justify-between p-4 rounded-xl bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark shadow-md">
-        <ThemeText className="text-lg font-semibold"> Modo Oscuro </ThemeText>
-        <Switch onValueChange={toggleTheme} value={isDark} trackColor={{ false: "#d1d5db", true: "#374151" }} thumbColor={isDark ? "#93c5fd" : "#5bbf96"} />
+    <View className="flex-row items-center justify-between p-4 rounded-2xl bg-white/30 dark:bg-black/30 my-4 border border-white/20">
+      <ThemeText className="text-lg font-poppins-semibold">Modo Oscuro</ThemeText>
+      <Switch
+        value={isDark}
+        onValueChange={toggleTheme}
+        trackColor={{ false: '#84FFC6', true: '#132E32' }}
+        thumbColor={isDark ? '#FFD015' : '#132E32'}
+      />
     </View>
   );
 };

@@ -1,157 +1,212 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { View, ScrollView } from 'react-native';
+// app/(drawer)/digitizer.tsx  ← VERSIÓN FINAL CORREGIDA Y PERFECTA
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Pressable, Modal, Image, ScrollView } from 'react-native';
+import { getBestScore, setBestScore } from '../../utils/bestScore';
 import { ThemeView, ThemeText } from '../../components/Theme';
-import ThemeButton from '../../components/ThemeButton';
-import ThemeCard from '../../components/ThemeCard';
-import ThemeModal from '../../components/ThemeModal'; 
+import { Trophy, Play, Pause, HelpCircle } from 'lucide-react-native';
+import { useAuth } from '../../context/AuthContext';
 
-const ALL_NOTES = ['Do', 'Re', 'Mi', 'Fa', 'Sol', 'La', 'Si'];
-const TIME_LIMIT = 2.0; 
-const getOptions = (correctNote: string) => { 
-    const options = new Set<string>();
-    options.add(correctNote);
+const ALL_NOTES = ['Do', 'Re', 'Mi', 'Fa', 'Sol', 'La', 'Si'] as const;
+type Note = typeof ALL_NOTES[number];
 
-    while (options.size < 4) {
-        const randomIndex = Math.floor(Math.random() * ALL_NOTES.length);
-        options.add(ALL_NOTES[randomIndex]);
+const NOTE_IMAGES: Record<Note, any> = {
+  Do: require('../../assets/notes/do.png'),
+  Re: require('../../assets/notes/re.png'),
+  Mi: require('../../assets/notes/mi.png'),
+  Fa: require('../../assets/notes/fa.png'),
+  Sol: require('../../assets/notes/sol.png'),
+  La: require('../../assets/notes/la.png'),
+  Si: require('../../assets/notes/si.png'),
+};
+
+export default function DigitizerScreen() {
+  const [note, setNote] = useState<Note>('Sol');
+  const [timeLeft, setTimeLeft] = useState(4.0);
+  const [score, setScore] = useState(0);
+  const [gameOn, setGameOn] = useState(false);
+  const [feedback, setFeedback] = useState<'none' | 'correct' | 'wrong'>('none');
+  const [options, setOptions] = useState<Note[]>([]);
+  const [showHelp, setShowHelp] = useState(false);
+
+  const newNote = useCallback(() => {
+    const random = ALL_NOTES[Math.floor(Math.random() * ALL_NOTES.length)];
+    setNote(random);
+    setTimeLeft(4.0);
+    setFeedback('none');
+
+    const opts = [random];
+    while (opts.length < 4) {
+      const r = ALL_NOTES[Math.floor(Math.random() * ALL_NOTES.length)];
+      if (!opts.includes(r)) opts.push(r);
     }
-    return Array.from(options).sort(() => Math.random() - 0.5);
-};
+    setOptions(opts.sort(() => Math.random() - 0.5));
+  }, []);
 
-const getNoteSymbol = (note: string) => { 
-    const symbols: { [key: string]: string } = {
-        'Do': '●', 'Re': '○', 'Mi': '♩',
-        'Fa': '♪', 'Sol': '♫', 'La': '♬',
-        'Si': '𝅘𝅥𝅮'
-    };
-    return symbols[note] || '?';
-};
-const DigitizerScreen: React.FC = () => {
-    const [correctNote, setCorrectNote] = useState('Do');
-    const [timeRemaining, setTimeRemaining] = useState(TIME_LIMIT);
-    const [score, setScore] = useState(0);
-    const [isRunning, setIsRunning] = useState(false);
-    const [feedback, setFeedback] = useState<'default' | 'correct' | 'error'>('default');
-    const [isModalVisible, setIsModalVisible] = useState(false);
-    
-    const generateNewNote = useCallback(() => {
-        const randomIndex = Math.floor(Math.random() * ALL_NOTES.length);
-        setCorrectNote(ALL_NOTES[randomIndex]);
-        setTimeRemaining(TIME_LIMIT);
-        setFeedback('default');
-    }, []);
+  const start = () => {
+    setScore(0);
+    setGameOn(true);
+    newNote();
+  };
 
-    const startGame = () => {
-        setScore(0);
-        setIsRunning(true);
-        generateNewNote();
-    };
-    
-    const handleAnswer = (selectedNote: string) => {
-        if (!isRunning) return;
+  // ← AQUÍ ESTABA EL ERROR, AHORA ESTÁ CORREGIDO
+  const answer = (selected: Note) => {
+    if (!gameOn) return;
 
-        if (selectedNote === correctNote) {
-            setScore(s => s + 1);
-            setFeedback('correct');
-            setTimeout(generateNewNote, 500); 
-        } else {
-            setFeedback('error');
-            setIsRunning(false); 
+    if (selected === note) {
+      setScore(s => s + 1);
+      setFeedback('correct');
+      setTimeout(newNote, 600);
+    } else {
+      setFeedback('wrong');
+      setGameOn(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!gameOn) return;
+    if (timeLeft <= 0) {
+      setFeedback('wrong');
+      setGameOn(false);
+      return;
+    }
+    const timer = setTimeout(() => setTimeLeft(prev => prev - 0.1), 100);
+    return () => clearTimeout(timer);
+  }, [gameOn, timeLeft]);
+
+  const { user } = useAuth();
+
+  // Guarda el mejor puntaje cuando el juego termina (por usuario si hay sesión)
+  useEffect(() => {
+    if (gameOn) return; // sólo cuando se detiene
+    (async () => {
+      try {
+        const best = await getBestScore(user?.id);
+        if (score > best) {
+          await setBestScore(score, user?.id);
         }
-    };
-        useEffect(() => {
-        let timerId: NodeJS.Timeout | undefined;
+      } catch (err) {
+        console.warn('Failed saving best score', err);
+      }
+    })();
+  }, [gameOn, user?.id]);
 
-        if (isRunning) {
-            timerId = setInterval(() => {
-                setTimeRemaining(t => {
-                    const newTime = Math.max(0, t - 0.1); 
-                    if (newTime <= 0) {
-                        setFeedback('error');
-                        setIsRunning(false);
-                        return 0;
-                    }
-                    return newTime;
-                });
-            }, 100); 
-        }
+  return (
+    <ThemeView className="flex-1 bg-white">
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+        <View className="flex-1 px-5 pt-10 pb-8">
 
-        return () => { 
-            if (timerId) clearInterval(timerId); 
-        };
-    }, [isRunning]);
-    const currentOptions = useMemo(() => getOptions(correctNote), [correctNote]);
-    const timerColor = timeRemaining < 0.5 && isRunning ? 'text-red-500' : 'text-secondary dark:text-accent';
-    const noteColor = feedback === 'correct' ? 'text-primary' : (feedback === 'error' ? 'text-red-500' : 'text-text-light dark:text-text-dark');
+          {/* TÍTULO */}
+          <View className="items-center mb-6">
+            <ThemeText className="text-3xl font-poppins-bold text-[#132E32] dark:text-white">
+              Lectura Rápida
+            </ThemeText>
+            <ThemeText className="text-lg text-gray-600 mt-1">
+              Identificá la nota en 4 segundos
+            </ThemeText>
+          </View>
 
+          {/* PUNTAJE EN CABECERA */}
+          <View className="items-center mb-6">
+            <View className="flex-row items-center gap-3 bg-[#132E32] px-5 py-2 rounded-full">
+              <Trophy size={24} color="#FFD015" />
+              <ThemeText className="text-2xl font-poppins-bold text-white">{score}</ThemeText>
+            </View>
+          </View>
 
-    return (
-        <ThemeView className="p-4 items-center">
-            <ScrollView contentContainerStyle={{ alignItems: 'center', paddingBottom: 40 }} className="w-full">
-                
-                <ThemeText className="text-3xl font-bold my-4 text-primary dark:text-secondary">
-                    Entrenador de Lectura Rápida
+          {/* PENTAGRAMA */}
+          <View className="bg-gray-50 rounded-2xl p-8 mb-8 shadow-lg border border-gray-200">
+            <Image
+              source={NOTE_IMAGES[note]}
+              style={{ width: '100%', height: 240 }}
+              resizeMode="contain"
+            />
+          </View>
+
+          {/* RELOJ GRANDE */}
+          <View className="items-center mb-6">
+            <View className="w-36 h-36 rounded-full bg-white/95 dark:bg-black/60 items-center justify-center shadow-md">
+              <ThemeText className="text-4xl font-poppins-bold text-[#132E32] dark:text-white">{timeLeft.toFixed(1)}</ThemeText>
+              <ThemeText className="text-xs text-gray-500 dark:text-gray-300">seg</ThemeText>
+            </View>
+          </View>
+
+          {/* FEEDBACK */}
+          {feedback !== 'none' && (
+            <View className="items-center mb-6">
+              <ThemeText className={`text-2xl font-poppins-bold ${feedback === 'correct' ? 'text-green-600' : 'text-red-600'}`}>
+                {feedback === 'correct' ? '¡Correcto!' : `Era ${note}`}
+              </ThemeText>
+            </View>
+          )}
+
+          {/* BOTONES 2×2 */}
+          <View className="gap-4 mb-10">
+            <View className="flex-row gap-4">
+              {[0, 1].map(i => (
+                <Pressable
+                  key={i}
+                  onPress={() => answer(options[i])}
+                  disabled={!gameOn}
+                  className="flex-1 bg-gray-100 rounded-2xl py-5 items-center border-2 border-gray-300 active:bg-gray-200"
+                >
+                  <ThemeText className="text-2xl font-poppins-semibold text-gray-800">
+                    {options[i]}
+                  </ThemeText>
+                </Pressable>
+              ))}
+            </View>
+            <View className="flex-row gap-4">
+              {[2, 3].map(i => (
+                <Pressable
+                  key={i}
+                  onPress={() => answer(options[i])}
+                  disabled={!gameOn}
+                  className="flex-1 bg-gray-100 rounded-2xl py-5 items-center border-2 border-gray-300 active:bg-gray-200"
+                >
+                  <ThemeText className="text-2xl font-poppins-semibold text-gray-800">
+                    {options[i]}
+                  </ThemeText>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          {/* BOTONES */}
+          <View className="items-center">
+            <View className="flex-row gap-6">
+              <Pressable
+                onPress={gameOn ? () => setGameOn(false) : start}
+                className="bg-gradient-to-r from-[#84FFC6] to-[#FFD015] px-12 py-5 rounded-full flex-row items-center gap-3 shadow-lg"
+              >
+                {gameOn ? <Pause size={30} color="#132E32" /> : <Play size={30} color="#132E32" />}
+                <ThemeText className="text-xl font-poppins-bold text-[#132E32] dark:text-white">
+                  {gameOn ? 'Pausar' : 'Comenzar'}
                 </ThemeText>
-                
-                <ThemeText className={`text-xl font-medium ${timerColor} mb-2`}>
-                    Tiempo: <ThemeText className="font-bold text-3xl">{timeRemaining.toFixed(1)}s</ThemeText>
-                </ThemeText>
+              </Pressable>
 
-                <ThemeCard className="w-full max-w-md items-center py-6 space-y-4">
-                    <ThemeText className="text-lg font-semibold text-accent"> ¿QUÉ NOTA ESTÁ EN EL PENTAGRAMA? </ThemeText>
+              <Pressable onPress={() => setShowHelp(true)} className="bg-[#132E32] p-5 rounded-full">
+                <HelpCircle size={30} color="#84FFC6" />
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
 
-                    <View className="w-full h-32 items-center justify-center border-y-4 border-text-light dark:border-text-dark my-2">
-                        <ThemeText className={`text-[100px] font-extrabold ${noteColor}`}>
-                            {getNoteSymbol(correctNote)} 
-                        </ThemeText>
-                    </View>
-                    
-                    <View className="h-6">
-                        {feedback === 'correct' && <ThemeText className="text-primary font-bold text-lg">¡CORRECTO! +1</ThemeText>}
-                        {feedback === 'error' && <ThemeText className="text-red-500 font-bold text-lg">TIEMPO Juego Detenido</ThemeText>}
-                    </View>
-                </ThemeCard>
-                
-                <View className="w-full max-w-md mt-6 flex-row flex-wrap justify-between">
-                    {currentOptions.map((note) => (
-                        <ThemeButton key={note} label={note} variant={isRunning ? 'secondary' : 'accent'} onPress={() => handleAnswer(note)} fullWidth={false} className="w-[48%] mb-3" disabled={!isRunning || feedback === 'error'} />
-                    ))}
-                </View>
-                
-                <View className="w-full max-w-md mt-8 space-y-3">
-                    <ThemeButton 
-                        label={isRunning ? 'DETENER JUEGO' : 'COMENZAR PRUEBA'}
-                        variant={isRunning ? 'accent' : 'primary'} 
-                        onPress={isRunning ? () => setIsRunning(false) : startGame} 
-                    />
-                    <ThemeButton label="¿Cómo jugar?" variant="text" onPress={() => setIsModalVisible(true)} />
-                                        
-                    <ThemeText className="text-sm text-gray-500 dark:text-gray-400 text-center">Puntaje Total: {score}</ThemeText>
-                </View>
-            </ScrollView>
-
-            <ThemeModal 
-                isVisible={isModalVisible} 
-                onClose={() => setIsModalVisible(false)} 
-                title="Instrucciones: Lectura Rápida"
-                animationType="slide"
-            >
-                <ThemeText className="text-base text-justify">
-                    El objetivo es identificar la nota musical en el pentagrama antes de que el tiempo se agote.
-                </ThemeText>
-                <ThemeText className="text-sm mt-2">
-                    1. Presiona "Comenzar Prueba".
-                </ThemeText>
-                <ThemeText className="text-sm">
-                    2. Selecciona la opción correcta en menos de 2.0 segundos.
-                </ThemeText>
-                <ThemeText className="text-sm">
-                    3. Un error o tiempo agotado detiene la prueba.
-                </ThemeText>
-            </ThemeModal>
-
-        </ThemeView>
-    );
-};
-
-export default DigitizerScreen;
+      {/* MODAL */}
+      <Modal visible={showHelp} transparent animationType="fade">
+        <View className="flex-1 bg-black/50 justify-center items-center p-8">
+          <View className="bg-white rounded-3xl p-10 w-full max-w-sm">
+            <ThemeText className="text-2xl font-poppins-bold text-center mb-6">Cómo jugar</ThemeText>
+            <ThemeText className="text-center text-gray-700 leading-6">
+              Aparecerá una nota en el pentagrama.{'\n'}
+              Tocá su nombre correcto antes de que se acabe el tiempo.
+            </ThemeText>
+            <Pressable onPress={() => setShowHelp(false)} className="bg-[#84FFC6] mt-8 px-12 py-5 rounded-full">
+              <ThemeText className="text-xl font-poppins-bold text-[#132E32] dark:text-[#132E32]">¡Listo!</ThemeText>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </ThemeView>
+  );
+}
