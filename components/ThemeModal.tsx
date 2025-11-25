@@ -25,7 +25,7 @@ const ThemeModal: React.FC<PropsWithChildren<ThemeModalProps>> = ({
                 <Pressable onPress={(e) => e.stopPropagation()}>
                     <Animated.View style={{ width: '90%', maxHeight: screenHeight * 0.8 }} entering={enteringAnimation} exiting={exitingAnimation}>
                         <ThemeCard className="p-6 space-y-4">
-                            <ThemeText className="text-xl font-bold mb-3 text-primary"> {title} </ThemeText>
+                            <ThemeText className="text-xl font-bold mb-3 text-text-light dark:text-text-dark"> {title} </ThemeText>
                             {children}
                             <ThemeButton label="Entendido" variant="secondary" onPress={onClose} className="mt-4" />
                         </ThemeCard>

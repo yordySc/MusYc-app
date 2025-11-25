@@ -1,7 +1,8 @@
 import React, { PropsWithChildren, useState, useCallback } from 'react';
 import { Pressable, Text, PressableProps, ActivityIndicator, StyleProp, ViewStyle } from 'react-native';
+import { useTheme } from './Theme';
 
-type ButtonVariant = 'primary' | 'secondary' | 'accent' | 'text';
+type ButtonVariant = 'primary' | 'secondary' | 'accent' | 'text' | 'danger';
 
 interface ThemeButtonProps extends PressableProps {
   label: string;
@@ -15,6 +16,7 @@ const ThemeButton: React.FC<PropsWithChildren<ThemeButtonProps>> = ({
   label, variant = 'primary', loading = false, fullWidth = true, className = '', disabled, children, ...props 
 }) => {
   const [isPressed, setIsPressed] = useState(false);
+  const { isDark } = useTheme();
 
   const getVariantClasses = useCallback((pressedState: boolean) => {
     let bg = '';
@@ -24,20 +26,24 @@ const ThemeButton: React.FC<PropsWithChildren<ThemeButtonProps>> = ({
     switch (variant) {
       case 'primary':
         bg = 'bg-primary dark:bg-primary'; 
-        text = 'text-background-dark dark:text-background-dark';
+        text = 'text-white dark:text-white';
         break;
       case 'secondary':
         bg = 'bg-secondary dark:bg-secondary';
-        text = 'text-background-dark dark:text-background-dark';
+        text = 'text-primary dark:text-primary';
         break;
       case 'accent':
-        bg = 'bg-accent dark:bg-accent';
-        text = 'text-background-dark dark:text-background-dark';
+        bg = 'bg-accent dark:bg-accent-dark';
+        text = 'text-primary dark:text-primary';
+        break;
+      case 'danger':
+        bg = 'bg-danger dark:bg-danger';
+        text = 'text-white dark:text-white';
         break;
       case 'text':
         bg = 'bg-transparent';
         text = 'text-primary dark:text-secondary';
-        opacity = pressedState ? 'opacity-50' : 'opacity-100';
+        opacity = pressedState ? 'opacity-60' : 'opacity-100';
         break;
     }
 
@@ -59,7 +65,7 @@ const ThemeButton: React.FC<PropsWithChildren<ThemeButtonProps>> = ({
       {...props}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'text' ? '#5bbf96' : 'white'} />
+        <ActivityIndicator color={isDark ? '#FFFFFF' : '#132E32'} />
       ) : (
         <Text className={`text-lg font-semibold ${getTextColorClass()}`}>
           {label}

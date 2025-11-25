@@ -21,7 +21,12 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.yordysc.musycapp",
+      "versionCode": 1,
+      "gradleProperties": {
+        "newArchEnabled": "true"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -30,6 +35,12 @@
     "plugins": [
       "expo-router",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "fc398e94-b080-487d-8fc1-8a60a4ad7e2e"
+      }
+    }
   }
 }

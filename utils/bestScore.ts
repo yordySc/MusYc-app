@@ -10,7 +10,7 @@ export async function getBestScore(userId?: string): Promise<number> {
     const n = parseInt(raw, 10);
     return Number.isNaN(n) ? 0 : n;
   } catch (err) {
-    console.warn('getBestScore error', err);
+    // getBestScore error
     return 0;
   }
 }
@@ -26,7 +26,7 @@ export async function setBestScore(score: number, userId?: string): Promise<void
       // ignore
     }
   } catch (err) {
-    console.warn('setBestScore error', err);
+    // setBestScore error
   }
 }
 

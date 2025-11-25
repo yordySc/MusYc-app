@@ -1,235 +1,611 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View, Modal, Pressable, TextInput, Alert } from 'react-native';
-import { ThemeView, ThemeText } from '../../components/Theme';
-import ThemeCard from '../../components/ThemeCard';
+import { ScrollView, View, Modal, Pressable, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { ThemeView, ThemeText, useTheme } from '../../components/Theme';
 import IconItem from '../../components/IconItem';
 import { useAuth } from '../../context/AuthContext';
-import { RepertoireItem, getRepertoire, addRepertoireItem, getUserUploads, addUserUpload, togglePublish } from '../../utils/libraryStore';
+import { supabase } from '../../utils/supabase';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as WebBrowser from 'expo-web-browser';
+
+interface RepertoireItem {
+  id: number;
+  title: string;
+  difficulty_level: string;
+  pdf_url: string;
+  created_by_user_id: string | null;
+  is_public: boolean;
+  genre: string | null;
+  instrumentation: string | null;
+  created_at: string;
+}
 
 const LibraryScreen: React.FC = () => {
   const { user } = useAuth();
+  const { isDark } = useTheme();
   const [items, setItems] = useState<RepertoireItem[]>([]);
-  const [open, setOpen] = useState<RepertoireItem | null>(null);
-  const [filterText, setFilterText] = useState('');
-  const [filterLevel, setFilterLevel] = useState<string>('Todos');
-  const [filterInstrument, setFilterInstrument] = useState<string>('Todos');
-  const [viewMode, setViewMode] = useState<'Todos'|'Publicos'|'Mis Partituras'>('Todos');
-
-  // Admin / upload state
-  const [adminOpen, setAdminOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [filterLevel, setFilterLevel] = useState<string>('Todos');
+  const [uploading, setUploading] = useState(false);
+  const [editingItem, setEditingItem] = useState<RepertoireItem | null>(null);
+  const [showMenu, setShowMenu] = useState<number | null>(null);
+
   const [newTitle, setNewTitle] = useState('');
-  const [newType, setNewType] = useState('Partitura');
-  const [newInstrument, setNewInstrument] = useState('');
-  const [newLevel, setNewLevel] = useState<RepertoireItem['level']>('Principiante');
-  const [uploadUri, setUploadUri] = useState<string | null>(null);
+  const [newLevel, setNewLevel] = useState<string>('Principiante');
+  const [newGenre, setNewGenre] = useState('');
+  const [newInstrumentation, setNewInstrumentation] = useState('');
+  const [selectedPdfUri, setSelectedPdfUri] = useState<string | null>(null);
+  const [newIsPublic, setNewIsPublic] = useState(true);
+
+  const colors = {
+    bgCard: isDark ? '#1A2E33' : '#FFFFFF',
+    border: isDark ? '#374151' : '#E5E7EB',
+    text: isDark ? '#F0F9FF' : '#132E32',
+    textSecondary: isDark ? '#D1D5DB' : '#6B7280',
+    bg: isDark ? '#0D1B1F' : '#F5F7FA',
+  };
 
   useEffect(() => {
-    (async () => {
-      const repo = await getRepertoire();
-      const uploads = await getUserUploads(user?.id);
-      // combine system repo + public uploads + user's own uploads
-      const publicUploads = uploads.filter(u => u.public);
-      const combined = [...repo, ...publicUploads, ...uploads.filter(u => u.owner === user?.id)];
-      setItems(combined);
-    })();
-  }, [user?.id]);
+    fetchRepertoire();
+  }, []);
 
-  const refresh = async () => {
-    const repo = await getRepertoire();
-    const uploads = await getUserUploads(user?.id);
-    const publicUploads = uploads.filter(u => u.public);
-    const combined = [...repo, ...publicUploads, ...uploads.filter(u => u.owner === user?.id)];
-    setItems(combined);
-  };
+  const fetchRepertoire = async () => {
+    try {
+      setLoading(true);
+      let query = supabase.from('repertoire').select('*').order('created_at', { ascending: false });
 
-  const getLevelColor = (level: RepertoireItem['level']) => {
-      switch (level) {
-          case 'Avanzado': return 'text-red-400';
-          case 'Intermedio': return 'text-secondary dark:text-secondary';
-          default: return 'text-primary dark:text-primary';
+      if (user?.id) {
+        const { data, error } = await query;
+        if (error) throw error;
+        const filtered = (data || []).filter(
+          item => item.is_public === true || item.created_by_user_id === user.id
+        );
+        setItems(filtered);
+      } else {
+        const { data, error } = await query.eq('is_public', true);
+        if (error) throw error;
+        setItems(data || []);
       }
+    } catch (err) {
+      // Error fetching repertoire
+      Alert.alert('Error', 'No se pudieron cargar las partituras');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const filtered = items.filter(it => {
-    if (viewMode === 'Publicos' && it.public !== true && it.owner !== 'system') return false;
-    if (viewMode === 'Mis Partituras' && it.owner !== user?.id) return false;
-    if (filterLevel !== 'Todos' && it.level !== filterLevel) return false;
-    if (filterInstrument !== 'Todos' && it.instrument !== filterInstrument) return false;
-    if (filterText && !`${it.title} ${it.type} ${it.instrument}`.toLowerCase().includes(filterText.toLowerCase())) return false;
-    return true;
-  });
-
-  const handleAddGlobal = async () => {
-    if (!newTitle) return Alert.alert('Título requerido');
-    await addRepertoireItem({ title: newTitle, type: newType, instrument: newInstrument || 'Varios', level: newLevel, owner: 'system', public: true });
-    setAdminOpen(false);
-    setNewTitle(''); setNewType('Partitura'); setNewInstrument(''); setNewLevel('Principiante');
-    await refresh();
+  const getLevelColor = (level: string) => {
+    switch (level) {
+      case 'Avanzado': return '#EF4444';
+      case 'Intermedio': return '#84FFC6';
+      default: return '#132E32';
+    }
   };
 
   const pickDocument = async () => {
     try {
-      // dynamic import to avoid bundling errors if package missing
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const DocumentPicker = require('expo-document-picker');
-      const res = await DocumentPicker.getDocumentAsync({ type: 'application/pdf' });
-      if (res.type === 'success') {
-        setUploadUri(res.uri);
+      const result = await DocumentPicker.getDocumentAsync({ 
+        type: 'application/pdf',
+        copyToCacheDirectory: true,
+      });
+      
+      if (result.assets && result.assets.length > 0) {
+        const uri = result.assets[0].uri;
+        setSelectedPdfUri(uri);
+        Alert.alert('Éxito', 'PDF seleccionado correctamente');
+      } else if (!result.canceled) {
+        Alert.alert('Error', 'No se pudo obtener la ruta del PDF');
       }
     } catch (err) {
-      console.warn('DocumentPicker not available', err);
-      Alert.alert('No soportado', 'El selector de archivos no está disponible. Pega una URL en su lugar.');
+      // Error picking document
+      Alert.alert('Error', 'No se pudo seleccionar el archivo');
     }
   };
 
-  const handleUserUpload = async () => {
-    if (!newTitle) return Alert.alert('Título requerido');
-    const item = await addUserUpload(user?.id, { title: newTitle, type: newType, instrument: newInstrument || 'Varios', level: newLevel, public: true, fileUri: uploadUri || null });
-    setUploadOpen(false);
-    setNewTitle(''); setUploadUri(null);
-    await refresh();
+  const handleUpload = async () => {
+    if (!newTitle.trim()) return Alert.alert('Error', 'El título es requerido');
+    if (!selectedPdfUri && !editingItem) return Alert.alert('Error', 'Debes seleccionar un PDF');
+    if (!user?.id) return Alert.alert('Error', 'Usuario no autenticado');
+
+    if (editingItem) {
+      return handleUpdate();
+    }
+
+    try {
+      setUploading(true);
+
+      const fileName = `${Date.now()}-${newTitle.replace(/\s+/g, '_')}.pdf`;
+      const fileContent = await FileSystem.readAsStringAsync(selectedPdfUri!, { encoding: 'base64' });
+      const base64data = fileContent;
+      const binaryString = atob(base64data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+
+      const { data: storageData, error: storageError } = await supabase.storage.from('repertoire').upload(fileName, bytes, { contentType: 'application/pdf' });
+      if (storageError) throw storageError;
+
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage.from('repertoire').createSignedUrl(fileName, 365 * 24 * 60 * 60);
+      if (signedUrlError) throw signedUrlError;
+
+      const publicUrl = signedUrlData.signedUrl;
+
+      const { error: insertError } = await supabase.from('repertoire').insert([{ title: newTitle, difficulty_level: newLevel, pdf_url: publicUrl, created_by_user_id: user.id, is_public: newIsPublic, genre: newGenre || null, instrumentation: newInstrumentation || null }]);
+
+      if (insertError) throw insertError;
+
+      Alert.alert('Éxito', 'Partitura subida correctamente');
+      setUploadOpen(false);
+      setNewTitle('');
+      setNewLevel('Principiante');
+      setNewGenre('');
+      setNewInstrumentation('');
+      setSelectedPdfUri(null);
+      setNewIsPublic(true);
+      await fetchRepertoire();
+    } catch (err) {
+      // Error uploading
+      Alert.alert('Error', `No se pudo subir la partitura: ${err}`);
+    } finally {
+      setUploading(false);
+    }
   };
 
-  const handleTogglePublish = async (it: RepertoireItem) => {
-    if (!it.owner || it.owner === 'system') return;
-    await togglePublish(it.owner, it.id, !it.public);
-    await refresh();
+  const toggleVisibility = async (item: RepertoireItem) => {
+    if (item.created_by_user_id !== user?.id) {
+      return Alert.alert('Error', 'Solo puedes editar tus propias partituras');
+    }
+
+    try {
+      const { error } = await supabase
+        .from('repertoire')
+        .update({ is_public: !item.is_public })
+        .eq('id', item.id);
+
+      if (error) throw error;
+      await fetchRepertoire();
+    } catch (err) {
+      // Error toggling visibility
+      Alert.alert('Error', 'No se pudo cambiar la visibilidad');
+    }
   };
+
+  const deleteItem = async (item: RepertoireItem) => {
+    if (item.created_by_user_id !== user?.id) {
+      return Alert.alert('Error', 'Solo puedes eliminar tus propias partituras');
+    }
+
+    Alert.alert('Eliminar partitura', '¿Estás seguro de que deseas eliminar esta partitura?', [
+      { text: 'Cancelar', onPress: () => {} },
+      {
+        text: 'Eliminar',
+        onPress: async () => {
+          try {
+            const { error: deleteError } = await supabase.from('repertoire').delete().eq('id', item.id);
+
+            if (deleteError) throw deleteError;
+
+            try {
+              const url = new URL(item.pdf_url);
+              const pathParts = url.pathname.split('/');
+              const fileName = pathParts[pathParts.length - 1];
+              if (fileName) {
+                const { error: storageError } = await supabase.storage.from('repertoire').remove([fileName]);
+                if (storageError) {
+                  // Storage deletion error (non-blocking)
+                }
+              }
+            } catch (storageErr) {
+              // Storage deletion error (non-blocking)
+            }
+
+            Alert.alert('Éxito', 'Partitura eliminada correctamente');
+            await fetchRepertoire();
+          } catch (err) {
+            // Error deleting
+            Alert.alert('Error', 'No se pudo eliminar la partitura');
+          }
+        },
+        style: 'destructive',
+      },
+    ]);
+  };
+
+  const editItem = (item: RepertoireItem) => {
+    setEditingItem(item);
+    setNewTitle(item.title);
+    setNewLevel(item.difficulty_level);
+    setNewGenre(item.genre || '');
+    setNewInstrumentation(item.instrumentation || '');
+    setUploadOpen(true);
+    setShowMenu(null);
+  };
+
+  const handleUpdate = async () => {
+    if (!editingItem) return;
+    if (!newTitle.trim()) return Alert.alert('Error', 'El título es requerido');
+
+    try {
+      setUploading(true);
+      const { error } = await supabase
+        .from('repertoire')
+        .update({
+          title: newTitle,
+          difficulty_level: newLevel,
+          genre: newGenre || null,
+          instrumentation: newInstrumentation || null,
+        })
+        .eq('id', editingItem.id);
+
+      if (error) throw error;
+      Alert.alert('Éxito', 'Partitura actualizada correctamente');
+      setUploadOpen(false);
+      setEditingItem(null);
+      setNewTitle('');
+      setNewLevel('Principiante');
+      setNewGenre('');
+      setNewInstrumentation('');
+      await fetchRepertoire();
+    } catch (err) {
+      // Error updating
+      Alert.alert('Error', 'No se pudo actualizar la partitura');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const filtered = items.filter(it => {
+    if (filterLevel !== 'Todos' && it.difficulty_level !== filterLevel) return false;
+    return true;
+  });
 
   return (
-    <ThemeView className="p-4 bg-background-light dark:bg-background-dark flex-1">
-      <ScrollView showsVerticalScrollIndicator={false} className="py-3">
-        <ThemeText className="text-3xl font-poppins-bold mb-2 text-[#132E32] dark:text-white">Biblioteca Musical</ThemeText>
-
-        <ThemeText className="text-sm text-gray-500 dark:text-gray-300 mb-4">Filtra por nivel, instrumento o busca por título</ThemeText>
-
-        <View className="flex-row items-center gap-2 mb-3">
-          <TextInput placeholder="Buscar..." value={filterText} onChangeText={setFilterText} className="flex-1 bg-white/5 px-3 py-2 rounded-xl" />
-          <Pressable onPress={() => { setAdminOpen(true); }} className="px-3 py-2 rounded-xl bg-white/10">
-            <ThemeText className="text-sm text-[#132E32] dark:text-white">Admin</ThemeText>
-          </Pressable>
-          <Pressable onPress={() => { setUploadOpen(true); }} className="px-3 py-2 rounded-xl bg-white/10">
-            <ThemeText className="text-sm text-[#132E32] dark:text-white">Subir</ThemeText>
+    <ThemeView style={{ flex: 1 }}>
+      <ScrollView showsVerticalScrollIndicator={false} style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <ThemeText style={{ fontSize: 28, fontWeight: 'bold', color: colors.text }}>Biblioteca</ThemeText>
+          <Pressable
+            onPress={() => setUploadOpen(true)}
+            style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, backgroundColor: '#84FFC6' }}
+          >
+            <ThemeText style={{ fontSize: 14, fontWeight: '600', color: '#132E32' }}>+ Subir</ThemeText>
           </Pressable>
         </View>
 
-        <View className="flex-row gap-2 mb-4">
-          {(['Todos','Principiante','Intermedio','Avanzado'] as const).map(l => (
-            <Pressable key={l} onPress={() => setFilterLevel(l as any)} className={`px-3 py-2 rounded-full ${filterLevel===l ? 'bg-[#132E32]' : 'bg-white/10'}`}>
-              <ThemeText className={`${filterLevel===l ? 'text-white' : 'text-[#132E32] dark:text-white'}`}>{l}</ThemeText>
+        
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+          {['Todos', 'Principiante', 'Intermedio', 'Avanzado'].map(level => (
+            <Pressable
+              key={level}
+              onPress={() => setFilterLevel(level)}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 20,
+                backgroundColor: filterLevel === level ? '#132E32' : colors.bgCard,
+                borderWidth: 1,
+                borderColor: filterLevel === level ? '#132E32' : colors.border,
+              }}
+            >
+              <ThemeText style={{ fontSize: 12, color: filterLevel === level ? '#FFFFFF' : colors.text }}>
+                {level}
+              </ThemeText>
             </Pressable>
           ))}
         </View>
 
-        <View className="flex-row gap-2 mb-3">
-          {(['Todos','Publicos','Mis Partituras'] as const).map(m => (
-            <Pressable key={m} onPress={() => setViewMode(m)} className={`px-3 py-2 rounded-full ${viewMode===m ? 'bg-[#84FFC6]' : 'bg-white/10'}`}>
-              <ThemeText className={`${viewMode===m ? 'text-[#132E32]' : 'text-[#132E32] dark:text-white'}`}>{m}</ThemeText>
-            </Pressable>
-          ))}
-        </View>
-
-        <View className="space-y-3">
-          {filtered.map((item) => (
-            <Pressable key={item.id} onPress={() => setOpen(item)}>
-              <ThemeCard className="mb-1" borderStyle="left-accent">
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-1 mr-3">
-                    <ThemeText className="text-lg font-poppins-semibold text-[#132E32] dark:text-white">{item.title}</ThemeText>
-                    <ThemeText className="text-sm mt-1 text-gray-500 dark:text-gray-400">{item.type} • {item.instrument}</ThemeText>
+        
+        {loading ? (
+          <View style={{ justifyContent: 'center', alignItems: 'center', height: 200 }}>
+            <ActivityIndicator size="large" color="#84FFC6" />
+          </View>
+        ) : filtered.length === 0 ? (
+          <ThemeText style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginTop: 24 }}>
+            No hay partituras disponibles
+          </ThemeText>
+        ) : (
+          <View style={{ gap: 12, paddingBottom: 24 }}>
+            {filtered.map((item) => (
+              <Pressable
+                key={item.id}
+                onPress={() => {
+                  if (item.pdf_url) {
+                    WebBrowser.openBrowserAsync(item.pdf_url);
+                  }
+                }}
+                style={{
+                  backgroundColor: colors.bgCard,
+                  borderRadius: 12,
+                  padding: 16,
+                  borderLeftWidth: 4,
+                  borderLeftColor: '#84FFC6',
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <View style={{ flex: 1, marginRight: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <ThemeText style={{ fontSize: 16, fontWeight: '600', color: colors.text }}>
+                        {item.title}
+                      </ThemeText>
+                      {!item.is_public && (
+                        <ThemeText style={{ fontSize: 10, fontWeight: 'bold', color: '#FFD015', backgroundColor: 'rgba(255, 208, 21, 0.2)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                          PRIVADO
+                        </ThemeText>
+                      )}
+                    </View>
+                    <ThemeText style={{ fontSize: 12, marginTop: 4, color: colors.textSecondary }}>
+                      {item.instrumentation || 'Varios'}
+                    </ThemeText>
                   </View>
-                  <ThemeText className={`text-xs font-poppins-bold ${getLevelColor(item.level)}`}>{item.level.toUpperCase()}</ThemeText>
+                  <ThemeText style={{ fontSize: 10, fontWeight: 'bold', color: getLevelColor(item.difficulty_level) }}>
+                    {item.difficulty_level.toUpperCase()}
+                  </ThemeText>
                 </View>
 
-                <View className="flex-row justify-between items-center mt-3 pt-3 border-t border-border-light dark:border-border-dark">
-                  <ThemeText className="text-xs text-[#84FFC6] font-poppins-semibold">Ver Partitura</ThemeText>
-                  <IconItem type="Ionicons" name="arrow-down-circle-outline" size={24} color="#84FFC6" />
+                {item.genre && (
+                  <ThemeText style={{ fontSize: 11, color: colors.textSecondary, marginTop: 4 }}>
+                    Género: {item.genre}
+                  </ThemeText>
+                )}
+
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginTop: 8,
+                    paddingTop: 8,
+                    borderTopWidth: 1,
+                    borderTopColor: colors.border,
+                  }}
+                >
+                  <ThemeText style={{ fontSize: 12, color: '#84FFC6', fontWeight: '600' }}>
+                    Ver Partitura
+                  </ThemeText>
+                  <IconItem type="Ionicons" name="download-outline" size={18} color="#84FFC6" />
                 </View>
-                {item.owner && item.owner !== 'system' && (
-                  <View className="mt-2">
-                    <ThemeText className="text-xs text-gray-500">Subida por: {item.owner === user?.id ? 'Tú' : item.owner}</ThemeText>
-                    <View className="flex-row gap-2 mt-2">
-                      <Pressable onPress={() => handleTogglePublish(item)} className="px-3 py-1 rounded-full bg-white/10">
-                        <ThemeText className="text-sm text-[#132E32]">{item.public ? 'Hacer privada' : 'Hacer pública'}</ThemeText>
+
+                
+                {item.created_by_user_id === user?.id && (
+                  <View style={{ marginTop: 12, gap: 8 }}>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      
+                      <Pressable
+                        onPress={() => toggleVisibility(item)}
+                        style={{
+                          flex: 1,
+                          paddingHorizontal: 12,
+                          paddingVertical: 8,
+                          borderRadius: 8,
+                          backgroundColor: item.is_public ? '#84FFC6' : '#FFD015',
+                        }}
+                      >
+                        <ThemeText style={{ fontSize: 11, fontWeight: '600', color: '#132E32', textAlign: 'center' }}>
+                          {item.is_public ? 'Público' : 'Privado'}
+                        </ThemeText>
+                      </Pressable>
+
+                      
+                      <Pressable
+                        onPress={() => editItem(item)}
+                        style={{
+                          flex: 1,
+                          paddingHorizontal: 12,
+                          paddingVertical: 8,
+                          borderRadius: 8,
+                          backgroundColor: '#8B5CF6',
+                        }}
+                      >
+                        <ThemeText style={{ fontSize: 11, fontWeight: '600', color: '#FFFFFF', textAlign: 'center' }}>
+                          Editar
+                        </ThemeText>
+                      </Pressable>
+
+                      
+                      <Pressable
+                        onPress={() => deleteItem(item)}
+                        style={{
+                          flex: 1,
+                          paddingHorizontal: 12,
+                          paddingVertical: 8,
+                          borderRadius: 8,
+                          backgroundColor: '#EF4444',
+                        }}
+                      >
+                        <ThemeText style={{ fontSize: 11, fontWeight: '600', color: '#FFFFFF', textAlign: 'center' }}>
+                          Eliminar
+                        </ThemeText>
                       </Pressable>
                     </View>
                   </View>
                 )}
-              </ThemeCard>
-            </Pressable>
-          ))}
-        </View>
+              </Pressable>
+            ))}
+          </View>
+        )}
       </ScrollView>
 
-      {/* Modal detalle */}
-      <Modal visible={!!open} animationType="slide" transparent>
-        <View className="flex-1 bg-black/50 justify-center items-center p-6">
-          <View className="w-full max-w-lg bg-white rounded-2xl p-6">
-            {open && (
-              <>
-                <ThemeText className="text-2xl font-poppins-bold mb-2">{open.title}</ThemeText>
-                <ThemeText className="text-sm text-gray-600 mb-4">{open.type} • {open.instrument}</ThemeText>
-                <ThemeText className="text-base text-gray-700 mb-4">{open.fileUri ? 'Partitura disponible (toca para descargar/ver).' : 'Vista previa no disponible.'}</ThemeText>
-                {open.fileUri ? (
-                  <Pressable onPress={() => Alert.alert('Abrir archivo', open.fileUri || '')} className="px-4 py-2 rounded-xl bg-white/10">
-                    <ThemeText className="text-[#132E32]">Abrir PDF</ThemeText>
+      
+      <Modal visible={uploadOpen} animationType="slide" transparent>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 16,
+          }}
+        >
+          <View
+            style={{
+              width: '100%',
+              maxWidth: 400,
+              backgroundColor: colors.bgCard,
+              borderRadius: 16,
+              padding: 20,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            <ThemeText style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16, color: colors.text }}>
+              {editingItem ? 'Editar Partitura' : 'Subir Partitura'}
+            </ThemeText>
+
+            <TextInput
+              placeholder="Título"
+              value={newTitle}
+              onChangeText={setNewTitle}
+              style={{
+                backgroundColor: colors.bg,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: colors.border,
+                color: colors.text,
+                marginBottom: 12,
+              }}
+              placeholderTextColor={colors.textSecondary}
+            />
+
+            <View style={{ marginBottom: 12 }}>
+              <ThemeText style={{ fontSize: 12, marginBottom: 8, color: colors.textSecondary }}>
+                Dificultad
+              </ThemeText>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {['Principiante', 'Intermedio', 'Avanzado'].map(level => (
+                  <Pressable
+                    key={level}
+                    onPress={() => setNewLevel(level)}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                      borderRadius: 8,
+                      backgroundColor: newLevel === level ? '#84FFC6' : colors.border,
+                    }}
+                  >
+                    <ThemeText style={{ fontSize: 11, color: newLevel === level ? '#132E32' : colors.text }}>
+                      {level}
+                    </ThemeText>
                   </Pressable>
-                ) : null}
+                ))}
+              </View>
+            </View>
+
+            <TextInput
+              placeholder="Género (opcional)"
+              value={newGenre}
+              onChangeText={setNewGenre}
+              style={{
+                backgroundColor: colors.bg,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: colors.border,
+                color: colors.text,
+                marginBottom: 12,
+              }}
+              placeholderTextColor={colors.textSecondary}
+            />
+
+            <TextInput
+              placeholder="Instrumentación (opcional)"
+              value={newInstrumentation}
+              onChangeText={setNewInstrumentation}
+              style={{
+                backgroundColor: colors.bg,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: colors.border,
+                color: colors.text,
+                marginBottom: 12,
+              }}
+              placeholderTextColor={colors.textSecondary}
+            />
+
+            {!editingItem && (
+              <>
+                <View style={{ marginBottom: 12 }}>
+                  <ThemeText style={{ fontSize: 12, marginBottom: 8, color: colors.textSecondary }}>
+                    Visibilidad
+                  </ThemeText>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Pressable onPress={() => setNewIsPublic(true)} style={{ flex: 1, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, backgroundColor: newIsPublic ? '#84FFC6' : colors.border }}>
+                      <ThemeText style={{ fontSize: 12, color: newIsPublic ? '#132E32' : colors.text, textAlign: 'center', fontWeight: '600' }}>Público</ThemeText>
+                    </Pressable>
+                    <Pressable onPress={() => setNewIsPublic(false)} style={{ flex: 1, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, backgroundColor: !newIsPublic ? '#FFD015' : colors.border }}>
+                      <ThemeText style={{ fontSize: 12, color: !newIsPublic ? '#132E32' : colors.text, textAlign: 'center', fontWeight: '600' }}>Privado</ThemeText>
+                    </Pressable>
+                  </View>
+                </View>
               </>
             )}
 
-            <View className="flex-row justify-end mt-6">
-                <Pressable onPress={() => setOpen(null)} className="px-4 py-2 rounded-full bg-[#84FFC6]">
-                <ThemeText className="font-poppins-bold text-[#132E32] dark:text-[#132E32]">Cerrar</ThemeText>
+            {!editingItem && (
+              <Pressable
+                onPress={pickDocument}
+                style={{
+                  backgroundColor: selectedPdfUri ? '#84FFC6' : colors.border,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  borderRadius: 8,
+                  marginBottom: 16,
+                  borderWidth: 2,
+                  borderColor: selectedPdfUri ? '#84FFC6' : colors.border,
+                }}
+              >
+                <ThemeText style={{ fontSize: 14, color: selectedPdfUri ? '#132E32' : colors.text, textAlign: 'center', fontWeight: selectedPdfUri ? '700' : '500' }}>
+                  {selectedPdfUri ? '✓ PDF Seleccionado' : 'Seleccionar PDF'}
+                </ThemeText>
               </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+            )}
 
-      {/* Admin modal */}
-      <Modal visible={adminOpen} animationType="slide" transparent>
-        <View className="flex-1 bg-black/40 justify-center items-center p-6">
-          <View className="w-full max-w-lg bg-white rounded-2xl p-6">
-            <ThemeText className="text-xl font-poppins-bold mb-3">Agregar partitura (global)</ThemeText>
-            <TextInput placeholder="Título" value={newTitle} onChangeText={setNewTitle} className="bg-white/5 px-3 py-2 rounded-xl mb-2" />
-            <TextInput placeholder="Instrumento" value={newInstrument} onChangeText={setNewInstrument} className="bg-white/5 px-3 py-2 rounded-xl mb-2" />
-            <TextInput placeholder="Tipo" value={newType} onChangeText={setNewType} className="bg-white/5 px-3 py-2 rounded-xl mb-2" />
-            <View className="flex-row justify-end gap-2 mt-4">
-              <Pressable onPress={() => setAdminOpen(false)} className="px-4 py-2 rounded-full bg-white/10">
-                <ThemeText className="text-[#132E32]">Cancelar</ThemeText>
+            <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end' }}>
+              <Pressable
+                onPress={() => {
+                  setUploadOpen(false);
+                  setEditingItem(null);
+                  setNewTitle('');
+                  setNewLevel('Principiante');
+                  setNewGenre('');
+                  setNewInstrumentation('');
+                  setSelectedPdfUri(null);
+                  setNewIsPublic(true);
+                }}
+                disabled={uploading}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                  borderRadius: 8,
+                  backgroundColor: colors.border,
+                }}
+              >
+                <ThemeText style={{ fontSize: 14, color: colors.text }}>Cancelar</ThemeText>
               </Pressable>
-              <Pressable onPress={handleAddGlobal} className="px-4 py-2 rounded-full bg-[#132E32]">
-                <ThemeText className="text-white">Agregar</ThemeText>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
-      {/* Upload modal (user) */}
-      <Modal visible={uploadOpen} animationType="slide" transparent>
-        <View className="flex-1 bg-black/40 justify-center items-center p-6">
-          <View className="w-full max-w-lg bg-white rounded-2xl p-6">
-            <ThemeText className="text-xl font-poppins-bold mb-3">Subir partitura</ThemeText>
-            <TextInput placeholder="Título" value={newTitle} onChangeText={setNewTitle} className="bg-white/5 px-3 py-2 rounded-xl mb-2" />
-            <TextInput placeholder="Instrumento" value={newInstrument} onChangeText={setNewInstrument} className="bg-white/5 px-3 py-2 rounded-xl mb-2" />
-            <TextInput placeholder="Tipo" value={newType} onChangeText={setNewType} className="bg-white/5 px-3 py-2 rounded-xl mb-2" />
-
-            <View className="flex-row items-center gap-2 mb-3">
-              <Pressable onPress={pickDocument} className="px-3 py-2 rounded-full bg-white/10">
-                <ThemeText className="text-[#132E32]">Seleccionar PDF</ThemeText>
-              </Pressable>
-              <ThemeText className="text-sm text-gray-500">{uploadUri ? 'Archivo seleccionado' : 'Ningún archivo'}</ThemeText>
-            </View>
-
-            <View className="flex-row justify-end gap-2 mt-4">
-              <Pressable onPress={() => setUploadOpen(false)} className="px-4 py-2 rounded-full bg-white/10">
-                <ThemeText className="text-[#132E32]">Cancelar</ThemeText>
-              </Pressable>
-              <Pressable onPress={handleUserUpload} className="px-4 py-2 rounded-full bg-[#132E32]">
-                <ThemeText className="text-white">Subir</ThemeText>
+              <Pressable
+                onPress={handleUpload}
+                disabled={uploading}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                  borderRadius: 8,
+                  backgroundColor: '#84FFC6',
+                  opacity: uploading ? 0.6 : 1,
+                }}
+              >
+                {uploading ? (
+                  <ActivityIndicator color="#132E32" />
+                ) : (
+                  <ThemeText style={{ fontSize: 14, fontWeight: '600', color: '#132E32' }}>
+                    {editingItem ? 'Actualizar' : 'Subir'}
+                  </ThemeText>
+                )}
               </Pressable>
             </View>
           </View>

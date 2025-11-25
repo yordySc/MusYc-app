@@ -16,9 +16,11 @@ const BreathingTabsLayout: React.FC = () => {
               borderTopColor: isDark ? '#334155' : '#e5e5e5', 
             },
             tabBarLabelStyle: { fontWeight: '600' },
+            unmountOnBlur: false,
         }}>
             <Tabs.Screen name='index' options={{ title: "Ejercicios", tabBarIcon: ({ color, size }) => ( <IconItem type="Ionicons" name="timer-outline" color={color} size={size} /> ), }} />
             <Tabs.Screen name='test' options={{ title: "Test Pulmonar", tabBarIcon: ({ color, size }) => ( <IconItem type="Ionicons" name="mic-outline" color={color} size={size} /> ), }} />
+            <Tabs.Screen name='complete-breathing' options={{ title: "Respiración", tabBarIcon: ({ color, size }) => ( <IconItem type="Ionicons" name="body-outline" color={color} size={size} /> ), }} />
         </Tabs>
     );
 };

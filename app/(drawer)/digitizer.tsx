@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Pressable, Modal, Image, ScrollView } from 'react-native';
 import { getBestScore, setBestScore } from '../../utils/bestScore';
-import { ThemeView, ThemeText } from '../../components/Theme';
+import { ThemeView, ThemeText, useTheme } from '../../components/Theme';
 import { Trophy, Play, Pause, HelpCircle } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 
@@ -74,6 +74,7 @@ export default function DigitizerScreen() {
   }, [gameOn, timeLeft]);
 
   const { user } = useAuth();
+  const { isDark } = useTheme();
 
   // Guarda el mejor puntaje cuando el juego termina (por usuario si hay sesión)
   useEffect(() => {
@@ -91,30 +92,30 @@ export default function DigitizerScreen() {
   }, [gameOn, user?.id]);
 
   return (
-    <ThemeView className="flex-1 bg-white">
+    <ThemeView className="flex-1">
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
         <View className="flex-1 px-5 pt-10 pb-8">
 
           {/* TÍTULO */}
           <View className="items-center mb-6">
-            <ThemeText className="text-3xl font-poppins-bold text-[#132E32] dark:text-white">
+            <ThemeText className="text-3xl font-poppins-bold">
               Lectura Rápida
             </ThemeText>
-            <ThemeText className="text-lg text-gray-600 mt-1">
+            <ThemeText className="text-lg text-text-secondary-light dark:text-text-secondary-dark mt-1">
               Identificá la nota en 4 segundos
             </ThemeText>
           </View>
 
           {/* PUNTAJE EN CABECERA */}
           <View className="items-center mb-6">
-            <View className="flex-row items-center gap-3 bg-[#132E32] px-5 py-2 rounded-full">
+            <View className="flex-row items-center gap-3 bg-primary px-5 py-2 rounded-full">
               <Trophy size={24} color="#FFD015" />
               <ThemeText className="text-2xl font-poppins-bold text-white">{score}</ThemeText>
             </View>
           </View>
 
           {/* PENTAGRAMA */}
-          <View className="bg-gray-50 rounded-2xl p-8 mb-8 shadow-lg border border-gray-200">
+          <View className="bg-bg-card-light dark:bg-bg-card-dark rounded-2xl p-8 mb-8 shadow-lg border border-border-light dark:border-border-dark">
             <Image
               source={NOTE_IMAGES[note]}
               style={{ width: '100%', height: 240 }}
@@ -124,16 +125,16 @@ export default function DigitizerScreen() {
 
           {/* RELOJ GRANDE */}
           <View className="items-center mb-6">
-            <View className="w-36 h-36 rounded-full bg-white/95 dark:bg-black/60 items-center justify-center shadow-md">
-              <ThemeText className="text-4xl font-poppins-bold text-[#132E32] dark:text-white">{timeLeft.toFixed(1)}</ThemeText>
-              <ThemeText className="text-xs text-gray-500 dark:text-gray-300">seg</ThemeText>
+            <View className="w-36 h-36 rounded-full bg-bg-card-light dark:bg-bg-card-dark items-center justify-center shadow-md border border-border-light dark:border-border-dark">
+              <ThemeText className="text-4xl font-poppins-bold" style={{ color: isDark ? '#000000' : undefined }}>{timeLeft.toFixed(1)}</ThemeText>
+              <ThemeText className="text-xs text-text-secondary-light dark:text-text-secondary-dark" style={{ color: isDark ? '#000000' : undefined }}>seg</ThemeText>
             </View>
           </View>
 
           {/* FEEDBACK */}
           {feedback !== 'none' && (
             <View className="items-center mb-6">
-              <ThemeText className={`text-2xl font-poppins-bold ${feedback === 'correct' ? 'text-green-600' : 'text-red-600'}`}>
+              <ThemeText className={`text-2xl font-poppins-bold ${feedback === 'correct' ? 'text-success' : 'text-danger'}`}>
                 {feedback === 'correct' ? '¡Correcto!' : `Era ${note}`}
               </ThemeText>
             </View>
@@ -147,9 +148,9 @@ export default function DigitizerScreen() {
                   key={i}
                   onPress={() => answer(options[i])}
                   disabled={!gameOn}
-                  className="flex-1 bg-gray-100 rounded-2xl py-5 items-center border-2 border-gray-300 active:bg-gray-200"
+                  className="flex-1 bg-bg-card-light dark:bg-bg-card-dark rounded-2xl py-5 items-center border-2 border-border-light dark:border-border-dark active:bg-border-light dark:active:bg-bg-card-dark"
                 >
-                  <ThemeText className="text-2xl font-poppins-semibold text-gray-800">
+                  <ThemeText className="text-2xl font-poppins-semibold" style={{ color: isDark ? '#000000' : undefined }}>
                     {options[i]}
                   </ThemeText>
                 </Pressable>
@@ -161,9 +162,9 @@ export default function DigitizerScreen() {
                   key={i}
                   onPress={() => answer(options[i])}
                   disabled={!gameOn}
-                  className="flex-1 bg-gray-100 rounded-2xl py-5 items-center border-2 border-gray-300 active:bg-gray-200"
+                  className="flex-1 bg-bg-card-light dark:bg-bg-card-dark rounded-2xl py-5 items-center border-2 border-border-light dark:border-border-dark active:bg-border-light dark:active:bg-bg-card-dark"
                 >
-                  <ThemeText className="text-2xl font-poppins-semibold text-gray-800">
+                  <ThemeText className="text-2xl font-poppins-semibold" style={{ color: isDark ? '#000000' : undefined }}>
                     {options[i]}
                   </ThemeText>
                 </Pressable>
@@ -176,15 +177,15 @@ export default function DigitizerScreen() {
             <View className="flex-row gap-6">
               <Pressable
                 onPress={gameOn ? () => setGameOn(false) : start}
-                className="bg-gradient-to-r from-[#84FFC6] to-[#FFD015] px-12 py-5 rounded-full flex-row items-center gap-3 shadow-lg"
+                className="bg-secondary px-12 py-5 rounded-full flex-row items-center gap-3 shadow-lg"
               >
                 {gameOn ? <Pause size={30} color="#132E32" /> : <Play size={30} color="#132E32" />}
-                <ThemeText className="text-xl font-poppins-bold text-[#132E32] dark:text-white">
+                <ThemeText className="text-xl font-poppins-bold text-primary">
                   {gameOn ? 'Pausar' : 'Comenzar'}
                 </ThemeText>
               </Pressable>
 
-              <Pressable onPress={() => setShowHelp(true)} className="bg-[#132E32] p-5 rounded-full">
+              <Pressable onPress={() => setShowHelp(true)} className="bg-primary p-5 rounded-full">
                 <HelpCircle size={30} color="#84FFC6" />
               </Pressable>
             </View>
@@ -195,14 +196,14 @@ export default function DigitizerScreen() {
       {/* MODAL */}
       <Modal visible={showHelp} transparent animationType="fade">
         <View className="flex-1 bg-black/50 justify-center items-center p-8">
-          <View className="bg-white rounded-3xl p-10 w-full max-w-sm">
+          <View className="bg-bg-card-light dark:bg-bg-card-dark rounded-3xl p-10 w-full max-w-sm border border-border-light dark:border-border-dark">
             <ThemeText className="text-2xl font-poppins-bold text-center mb-6">Cómo jugar</ThemeText>
-            <ThemeText className="text-center text-gray-700 leading-6">
+            <ThemeText className="text-center text-text-light dark:text-text-dark leading-6">
               Aparecerá una nota en el pentagrama.{'\n'}
               Tocá su nombre correcto antes de que se acabe el tiempo.
             </ThemeText>
-            <Pressable onPress={() => setShowHelp(false)} className="bg-[#84FFC6] mt-8 px-12 py-5 rounded-full">
-              <ThemeText className="text-xl font-poppins-bold text-[#132E32] dark:text-[#132E32]">¡Listo!</ThemeText>
+            <Pressable onPress={() => setShowHelp(false)} className="bg-secondary mt-8 px-12 py-5 rounded-full">
+              <ThemeText className="text-xl font-poppins-bold text-primary">¡Listo!</ThemeText>
             </Pressable>
           </View>
         </View>

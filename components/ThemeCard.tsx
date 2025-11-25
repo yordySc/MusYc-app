@@ -13,19 +13,16 @@ const ThemeCard: React.FC<PropsWithChildren<ThemeCardProps>> = ({
   children, 
   ...props 
 }) => {
-  let baseClasses = 'p-4 rounded-xl shadow-md';
-  let themeClasses = 'bg-card-light dark:bg-card-dark border-border-light dark:border-border-dark';
-
-  if (borderStyle !== 'none') {
-    baseClasses += ' border';
-  }
+  let baseClasses = 'p-4 rounded-xl shadow-sm';
+  let themeClasses = 'bg-bg-card-light dark:bg-bg-card-dark border border-border-light dark:border-border-dark';
 
   if (borderStyle === 'left-accent') {
     baseClasses += ' border-l-4'; 
-    themeClasses = themeClasses + ' border-l-primary dark:border-l-secondary';
+    themeClasses = 'bg-bg-card-light dark:bg-bg-card-dark border border-border-light dark:border-border-dark border-l-secondary dark:border-l-accent';
   } else if (borderStyle === 'none') {
-    themeClasses = themeClasses.replace('border-border-light dark:border-border-dark', '');
+    themeClasses = 'bg-bg-card-light dark:bg-bg-card-dark';
   }
+  
   const finalClasses = `${baseClasses} ${themeClasses} ${className}`;
   return (
     <View className={finalClasses} style={style} {...props}>

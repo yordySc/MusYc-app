@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import ThemeInput from '../../components/ThemeInput';
+import ThemeButton from '../../components/ThemeButton';
 
 export default function LoginPage() {
   const { signIn, isLoading } = useAuth();
@@ -22,50 +24,46 @@ export default function LoginPage() {
   };
 
   return (
-    <View className="flex-1 bg-white dark:bg-[#07181a] items-center justify-center px-6">
+    <View className="flex-1 bg-bg-light dark:bg-bg-dark items-center justify-center px-6">
       <View className="w-full max-w-md">
-        <Text className="text-4xl font-poppins-bold text-[#132E32] dark:text-white mb-6">Bienvenido</Text>
-        <Text className="text-sm text-gray-500 dark:text-gray-300 mb-6">Inicia sesión para acceder a tu biblioteca y prácticas</Text>
+        <Text className="text-4xl font-poppins-bold text-text-light dark:text-text-dark mb-2">Bienvenido</Text>
+        <Text className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-8">Inicia sesión para acceder a tu biblioteca y prácticas</Text>
 
         <View className="mb-4">
-          <Text className="text-sm font-poppins-semibold text-gray-700 dark:text-gray-200 mb-2">Correo</Text>
-          <TextInput
+          <Text className="text-sm font-poppins-semibold text-text-light dark:text-text-dark mb-2">Correo</Text>
+          <ThemeInput
             value={email}
             onChangeText={setEmail}
             placeholder="ejemplo@correo.com"
             keyboardType="email-address"
             autoCapitalize="none"
-            className="bg-white/80 dark:bg-black/40 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3"
           />
         </View>
 
         <View className="mb-6">
-          <Text className="text-sm font-poppins-semibold text-gray-700 dark:text-gray-200 mb-2">Contraseña</Text>
-          <TextInput
+          <Text className="text-sm font-poppins-semibold text-text-light dark:text-text-dark mb-2">Contraseña</Text>
+          <ThemeInput
             value={password}
             onChangeText={setPassword}
-            placeholder="********"
+            placeholder="••••••••"
             secureTextEntry
-            className="bg-white/80 dark:bg-black/40 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3"
           />
         </View>
 
-        {error ? <Text className="text-red-500 mb-4">{error}</Text> : null}
+        {error ? <Text className="text-danger mb-4 font-poppins-semibold">{error}</Text> : null}
 
-        <Pressable
+        <ThemeButton
+          label={isLoading ? "Iniciando..." : "Iniciar sesión"}
+          loading={isLoading}
           onPress={handleLogin}
-          className="bg-[#132E32] px-4 py-3 rounded-xl items-center justify-center mb-4"
           disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text className="text-white font-poppins-bold">Iniciar sesión</Text>
-          )}
-        </Pressable>
+          fullWidth
+        />
 
-        <Pressable onPress={() => router.push('/auth/signup')} className="items-center mt-2">
-            <Text className="text-sm text-gray-600 dark:text-gray-300">¿No tienes cuenta? <Text className="text-[#132E32] dark:text-white">Regístrate</Text></Text>
+        <Pressable onPress={() => router.push('/auth/signup')} className="items-center mt-4">
+            <Text className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              ¿No tienes cuenta? <Text className="text-secondary dark:text-accent font-poppins-semibold">Regístrate</Text>
+            </Text>
         </Pressable>
       </View>
     </View>

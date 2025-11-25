@@ -44,11 +44,12 @@ function AuthGate() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading) {
-      if (!user) router.replace('/auth');
-      else router.replace('/');
+    if (isLoading) return;
+    
+    if (!user) {
+      router.replace('/auth');
     }
-  }, [user, isLoading, router]);
+  }, [isLoading, user, router]);
 
   if (isLoading) return <Splash />;
   return <Slot />;

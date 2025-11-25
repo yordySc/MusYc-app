@@ -32,10 +32,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const getSession = async () => {
       setIsLoading(true);
-      const { data, error } = await supabase.auth.getUser();
-      if (data?.user) {
-        setUser({ id: data.user.id, email: data.user.email ?? '' });
-      } else {
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (error?.message?.includes('Refresh Token')) {
+          setUser(null);
+        } else if (data?.user) {
+          setUser({ id: data.user.id, email: data.user.email ?? '' });
+        } else {
+          setUser(null);
+        }
+      } catch (err) {
         setUser(null);
       }
       setIsLoading(false);
@@ -76,17 +82,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.log('supabase signOut error:', error);
+        // supabase signOut error
         setIsLoading(false);
         return { error };
       }
       // Forzar limpieza local
       setUser(null);
       setIsLoading(false);
-      console.log('signOut successful');
       return { error: null };
     } catch (err) {
-      console.log('signOut exception:', err);
+      // signOut exception
       setIsLoading(false);
       return { error: err };
     }

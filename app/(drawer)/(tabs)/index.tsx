@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ThemeView, ThemeText } from '../../../components/Theme';
+import { ThemeView, ThemeText, useTheme } from '../../../components/Theme';
 import { View, Pressable } from 'react-native';
 import { usePracticeStore } from '../../../store/usePracticeStore';
 import { useAuth } from '../../../context/AuthContext';
@@ -17,6 +17,10 @@ const BreathingExercises: React.FC = () => {
   const startRef = useRef<number | null>(null);
   const addLog = usePracticeStore(state => state.addLog);
   const { user } = useAuth();
+  const { isDark } = useTheme();
+
+  const instrBg = isDark ? '#122626' : '#FFFFFF';
+  const instrText = isDark ? '#D1D5DB' : '#132E32';
 
   useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
@@ -70,12 +74,12 @@ const BreathingExercises: React.FC = () => {
       </View>
 
       <ThemeText className="text-xl font-poppins-semibold mb-4 text-center text-[#132E32] dark:text-white">Rutina diaria — Principiante</ThemeText>
-      <View className="w-full max-w-md p-4 rounded-xl bg-white/95 dark:bg-card-dark shadow-md mb-6">
-        <ThemeText className="text-base italic text-center text-[#132E32] dark:text-white">Inhala 4s — Mantén 6s — Exhala 8s</ThemeText>
+      <View style={{ width: '100%', maxWidth: 560, padding: 16, borderRadius: 12, backgroundColor: instrBg, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 6, marginBottom: 16 }}>
+        <ThemeText style={{ color: instrText, textAlign: 'center', fontStyle: 'italic' }}>Inhala 4s — Mantén 6s — Exhala 8s</ThemeText>
       </View>
 
-      <Pressable onPress={toggle} className={`px-8 py-4 rounded-full ${running ? 'bg-red-400' : 'bg-[#84FFC6]'}`}>
-        <ThemeText className="text-lg font-poppins-bold text-[#132E32] dark:text-[#07201f]">{running ? 'Detener' : 'Comenzar'}</ThemeText>
+      <Pressable onPress={toggle} style={{ paddingHorizontal: 24, paddingVertical: 12, borderRadius: 999, backgroundColor: running ? '#EF4444' : '#84FFC6' }}>
+        <ThemeText style={{ color: running ? '#FFFFFF' : '#132E32', fontSize: 18, fontFamily: 'Poppins-Bold' }}>{running ? 'Detener' : 'Comenzar'}</ThemeText>
       </Pressable>
     </ThemeView>
   );

@@ -1,14 +1,17 @@
 // app/(drawer)/settings.tsx
 import React from 'react';
-import { View, Pressable, Alert } from 'react-native';
-import { ThemeView, ThemeText, ThemeSwitch } from '../../components/Theme';
+import { View, Pressable, Alert, Switch, StyleSheet, ScrollView } from 'react-native';
+import { ThemeView, ThemeText, ThemeSwitch, useTheme } from '../../components/Theme';
 import { LogOut, Music, Bell } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { getInstruments } from '../../utils/profileStore';
 import { useEffect, useState } from 'react';
+import { useIsFocused } from '@react-navigation/native';
 
 export default function SettingsScreen() {
   const { signOut, user } = useAuth();
+  const { isDark } = useTheme();
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   const handleSignOut = async () => {
     try {
@@ -26,54 +29,118 @@ export default function SettingsScreen() {
   };
 
   const [instruments, setInstruments] = useState<string[]>([]);
+  const isFocused = useIsFocused();
+
   useEffect(() => {
     (async () => {
+      if (!isFocused) return;
       const list = await getInstruments(user?.id);
       setInstruments(list || []);
     })();
-  }, [user?.id]);
+  }, [user?.id, isFocused]);
+
+  const bgColor = isDark ? '#07181a' : '#F5F7FA';
+  const cardBgColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.25)';
+  const textColor = isDark ? '#FFFFFF' : '#132E32';
+  const borderColor = isDark ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.3)';
 
   return (
-    <ThemeView className="px-6 pt-4">
-      <ThemeText className="text-4xl font-poppins-bold text-[#132E32] dark:text-white mb-10">Ajustes</ThemeText>
+    <ThemeView style={{ flex: 1 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ backgroundColor: bgColor, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24, flexGrow: 1 }}
+      >
+        <ThemeText style={{ fontSize: 36, fontWeight: '700', marginBottom: 24, color: textColor }}>
+          Ajustes
+        </ThemeText>
 
-      <View className="space-y-6">
-        <View className="bg-white/25 backdrop-blur-2xl rounded-3xl p-6 border border-white/30">
-          <View className="flex-row items-center gap-4 mb-4">
+        <View style={{ gap: 24 }}>
+        {/* Instrumentos */}
+        <View style={{
+          backgroundColor: cardBgColor,
+          borderRadius: 24,
+          padding: 24,
+          borderWidth: 1,
+          borderColor: borderColor
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 16 }}>
             <Music size={32} color="#84FFC6" />
-            <ThemeText className="text-2xl font-poppins-bold text-[#132E32] dark:text-white">Instrumento(s)</ThemeText>
+            <ThemeText style={{ fontSize: 24, fontWeight: '700', color: textColor }}>
+              Instrumento(s)
+            </ThemeText>
           </View>
           {instruments.length === 0 ? (
-            <ThemeText className="text-sm text-gray-500 dark:text-gray-400">No has seleccionado instrumentos en tu perfil.</ThemeText>
+            <ThemeText style={{ fontSize: 14, color: isDark ? '#999999' : '#666666' }}>
+              No has seleccionado instrumentos en tu perfil.
+            </ThemeText>
           ) : (
-            <View className="flex-row flex-wrap gap-2">
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {instruments.map(i => (
-                <View key={i} className="bg-white/10 px-3 py-1 rounded-full">
-                  <ThemeText className="text-sm text-[#132E32] dark:text-white">{i}</ThemeText>
+                <View 
+                  key={i} 
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.1)',
+                    paddingHorizontal: 12,
+                    paddingVertical: 4,
+                    borderRadius: 20
+                  }}
+                >
+                  <ThemeText style={{ fontSize: 14, color: textColor }}>{i}</ThemeText>
                 </View>
               ))}
             </View>
           )}
         </View>
 
-        <View className="bg-white/25 backdrop-blur-2xl rounded-3xl p-6 border border-white/30">
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-4">
+        {/* Notificaciones */}
+        <View style={{
+          backgroundColor: cardBgColor,
+          borderRadius: 24,
+          padding: 24,
+          borderWidth: 1,
+          borderColor: borderColor
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
               <Bell size={28} color="#84FFC6" />
-              <ThemeText className="text-xl font-poppins-semibold text-[#132E32] dark:text-white">Notificaciones</ThemeText>
+              <ThemeText style={{ fontSize: 18, fontWeight: '600', color: textColor }}>
+                Notificaciones
+              </ThemeText>
             </View>
-            <ThemeSwitch />
+            <Switch
+              value={notificationsEnabled}
+              onValueChange={setNotificationsEnabled}
+              trackColor={{ false: '#84FFC6', true: '#132E32' }}
+              thumbColor={notificationsEnabled ? '#FFD015' : '#132E32'}
+            />
           </View>
         </View>
 
+        {/* Modo Oscuro */}
+        <ThemeSwitch />
+
+        {/* Cerrar Sesión */}
         <Pressable
-          className="bg-red-500/20 backdrop-blur-2xl rounded-3xl p-6 border border-red-500/40 flex-row items-center justify-center gap-4"
+          style={{
+            backgroundColor: 'rgba(239, 68, 68, 0.2)',
+            borderRadius: 24,
+            padding: 24,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 16,
+            borderWidth: 1,
+            borderColor: 'rgba(239, 68, 68, 0.4)'
+          }}
           onPress={handleSignOut}
         >
           <LogOut size={28} color="#ef4444" />
-          <ThemeText className="text-xl font-poppins-bold text-red-500">Cerrar Sesión</ThemeText>
+          <ThemeText style={{ fontSize: 18, fontWeight: '700', color: '#ef4444' }}>
+            Cerrar Sesión
+          </ThemeText>
         </Pressable>
       </View>
+      </ScrollView>
     </ThemeView>
   );
 }

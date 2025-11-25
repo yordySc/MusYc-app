@@ -21,7 +21,7 @@ export async function getInstruments(userId?: string): Promise<string[]> {
         return inst as string[];
       }
     } catch (err) {
-      console.warn('Supabase getInstruments failed, falling back to local', err);
+      // Supabase getInstruments failed, falling back to local
     }
   }
 
@@ -31,7 +31,7 @@ export async function getInstruments(userId?: string): Promise<string[]> {
     if (!raw) return [];
     return JSON.parse(raw) as string[];
   } catch (err) {
-    console.warn('getInstruments error', err);
+    // getInstruments error
     return [];
   }
 }
@@ -43,7 +43,7 @@ export async function setInstruments(list: string[], userId?: string): Promise<v
   try {
     await AsyncStorage.setItem(key, JSON.stringify(list));
   } catch (err) {
-    console.warn('setInstruments local save error', err);
+    // setInstruments local save error
   }
 
   if (!userId) return;
@@ -52,14 +52,14 @@ export async function setInstruments(list: string[], userId?: string): Promise<v
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .upsert({ id: userId, instruments: list, updated_at: new Date().toISOString() }, { returning: 'representation' })
+      .upsert({ id: userId, instruments: list, updated_at: new Date().toISOString() })
       .select();
 
     if (error) {
-      console.warn('Supabase setInstruments upsert error', error);
+      // Supabase setInstruments upsert error
     }
   } catch (err) {
-    console.warn('Supabase setInstruments exception', err);
+    // Supabase setInstruments exception
   }
 }
 
@@ -72,12 +72,12 @@ export async function getProfile(userId?: string) {
       .eq('id', userId)
       .single();
     if (error) {
-      console.warn('getProfile supabase error', error);
+      // getProfile supabase error
       return null;
     }
     return data;
   } catch (err) {
-    console.warn('getProfile exception', err);
+    // getProfile exception
     return null;
   }
 }
@@ -86,12 +86,14 @@ export async function setProfile(profile: { id: string; instruments?: string[]; 
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .upsert({ ...profile, updated_at: new Date().toISOString() }, { returning: 'representation' })
+      .upsert({ ...profile, updated_at: new Date().toISOString() })
       .select();
-    if (error) console.warn('setProfile supabase error', error);
+    if (error) {
+      // setProfile supabase error
+    }
     return data;
   } catch (err) {
-    console.warn('setProfile exception', err);
+    // setProfile exception
     throw err;
   }
 }

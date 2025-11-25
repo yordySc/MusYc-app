@@ -16,24 +16,24 @@ const ThemeInput: React.FC<PropsWithChildren<ThemeInputProps>> = ({
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   let baseClasses = 'p-3 rounded-lg border text-base font-medium';
-  let themeClasses = 'bg-card-light dark:bg-card-dark text-text-light dark:text-text-dark';
+  let themeClasses = 'bg-bg-card-light dark:bg-bg-card-dark text-text-light dark:text-text-dark';
   let borderClasses = 'border-border-light dark:border-border-dark';
 
   if (isFocused) {
-    borderClasses = 'border-primary dark:border-secondary';
+    borderClasses = 'border-secondary dark:border-accent border-2';
   }
   
   if (status === 'error') {
-    borderClasses = 'border-red-500';
+    borderClasses = 'border-danger border-2';
   } else if (status === 'success') {
-    borderClasses = 'border-primary';
+    borderClasses = 'border-success border-2';
   }
 
   const finalClasses = `${baseClasses} ${themeClasses} ${borderClasses} ${className}`;
   
   const defaultPlaceholderColor = isFocused 
-    ? (status === 'error' ? '#f87171' : '#a8b5c9') 
-    : '#9ca3af'; 
+    ? '#84FFC6' 
+    : '#9CA3AF'; 
 
   return (
     <TextInput 
